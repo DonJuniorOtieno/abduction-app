@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeSOS — Abduction Safety Alert</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    
+    <!-- Our custom CSS -->
+    <link rel="stylesheet" href="abduction.css">
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="container header-content">
+            <div class="logo-area">
+                <div class="shield-icon">🛡️</div>
+                <div>
+                    <h1>SafeSOS</h1>
+                    <p>Abduction Safety Alert • Kenya</p>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="#" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">Home</a>
+                <a href="#">How it works</a>
+                <div class="status-badge">
+                    <span class="pulse"></span>
+                    LIVE IN NAIROBI
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container main-grid">
+        
+        <!-- LEFT - SOS AREA -->
+        <main class="sos-panel">
+            <div class="hero-text">
+                <div class="alert-pill">
+                    <span>🚨</span>
+                    <span>Instant Abduction Alert</span>
+                </div>
+                <h2>ONE TAP.<br><span class="highlight">HELP IS COMING.</span></h2>
+                <p>Press the SOS button to instantly share your live GPS location with Kenyan authorities and your emergency contacts.</p>
+            </div>
+
+            <div class="sos-button-wrapper">
+                <button id="sosBtn" onclick="triggerSOS()">SOS</button>
+            </div>
+
+            <div class="location-info">
+                <p>
+                    <span class="live-dot"></span>
+                    Tap once — location sent in under 3 seconds
+                </p>
+                <button onclick="getLocation()" class="refresh-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314-11.314z" />
+                        <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Refresh my location
+                </button>
+            </div>
+
+            <div class="location-card">
+                <div class="card-header">
+                    <div>
+                        <p class="label">YOUR LIVE LOCATION</p>
+                        <div id="locationText" class="location-value">Tap SOS or "Refresh" to activate</div>
+                    </div>
+                    <div id="accuracyBadge" class="accuracy-badge hidden">±0m</div>
+                </div>
+                <div id="map" class="map"></div>
+                <div class="map-footer">
+                    <span>📍 Nairobi, Kenya (default)</span>
+                    <span>High accuracy GPS</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- RIGHT - CONTACTS & EMERGENCY -->
+        <aside class="sidebar">
+            <div class="card contacts-card">
+                <div class="card-header">
+                    <span class="emoji">📞</span>
+                    <div>
+                        <h3>My Emergency Contacts</h3>
+                        <p>They will be notified instantly on SOS</p>
+                    </div>
+                </div>
+                <div id="contactsList" class="contacts-list"></div>
+
+                <form id="addContactForm" class="add-contact-form">
+                    <input id="contactName" type="text" placeholder="Name (e.g. Mum)" required>
+                    <input id="contactPhone" type="tel" placeholder="+254 7XX XXX XXX" required>
+                    <button type="submit" class="btn btn-success">+ ADD CONTACT</button>
+                </form>
+            </div>
+
+            <div class="card emergency-numbers">
+                <h3><span>🇰🇪</span> Kenya Emergency Numbers</h3>
+                <div class="numbers-grid">
+                    <a href="tel:999" class="emergency-btn police">
+                        <div class="emoji-big">🚔</div>
+                        <div class="number">999</div>
+                        <div class="desc">Police / Fire / Ambulance</div>
+                    </a>
+                    <a href="tel:112" class="emergency-btn universal">
+                        <div class="emoji-big">📱</div>
+                        <div class="number">112</div>
+                        <div class="desc">Universal Emergency</div>
+                    </a>
+                </div>
+                <p class="note">In real abduction: Call 999 immediately.<br>SafeSOS is simulation only.</p>
+            </div>
+
+            <div class="status-card">
+                <div class="ready-badge">
+                    <span class="live-dot"></span>
+                    SYSTEM READY
+                </div>
+                <p>This is a working prototype.<br>Built for demonstration purposes only.</p>
+            </div>
+        </aside>
+    </div>
+
+    <!-- SOS MODAL -->
+    <div id="sosModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="alert-icon">🚨</div>
+                <div>
+                    <h2>ALERT SENT!</h2>
+                    <p>Kenyan authorities & your contacts have been notified</p>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="section">
+                    <p class="label">SHARED LOCATION</p>
+                    <div id="modalLocation" class="location-display"></div>
+                </div>
+                <div class="info-row">
+                    <span class="label">Time of alert</span>
+                    <span id="modalTime" class="value"></span>
+                </div>
+                <div class="notifications-box">
+                    <div class="notification-item">
+                        <div class="org">KE</div>
+                        <div class="details">
+                            <p>Kenya Police (999)</p>
+                            <p class="status">• Alert + GPS coordinates received</p>
+                        </div>
+                        <span class="check">✓</span>
+                    </div>
+                    <div id="modalContactsNotified" class="contacts-notified"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeModal()" class="btn">CLOSE WINDOW</button>
+                <button onclick="fakeCallPolice()" class="btn btn-danger">
+                    <span>📞</span> SIMULATE CALL 999
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <p>⚠️ This is a <strong>demo website only</strong>. It does not contact real authorities.</p>
+            <p>In a genuine emergency — immediately dial <strong>999</strong> or <strong>112</strong>.</p>
+            <p class="credit">Built with ❤️ in Nairobi • For demonstration • 2026</p>
+        </div>
+    </footer>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Our custom JS -->
+    <script src="abduction.js"></script>
+</body>
+</html>
