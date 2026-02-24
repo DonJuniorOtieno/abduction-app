@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Safe Signal — Emergency App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a26;
+    --border: #2a2a3a;
+    --red: #ff2244;
+    --red-dim: #7a0f20;
+    --red-glow: rgba(255, 34, 68, 0.35);
+    --amber: #ffaa00;
+    --green: #00e87a;
+    --text: #e8e8f0;
+    --muted: #6b6b88;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 2rem;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; width: 100%; max-width: 420px; padding: 0 1.2rem; }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    padding: 2rem 0 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2.5rem;
+  }
+  header .logo {
+    font-family: var(--font-head);
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--red);
+    text-shadow: 0 0 20px var(--red-glow);
+  }
+  header .tagline {
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 0.3rem;
+  }
+
+  /* ── Alert Button ── */
+  .alert-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 3rem;
+  }
+
+  .alert-ring {
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .alert-ring::before, .alert-ring::after {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 1px solid var(--red-dim);
+    animation: ringPulse 2.4s ease-out infinite;
+  }
+  .alert-ring::after { animation-delay: 1.2s; }
+
+  @keyframes ringPulse {
+    0%   { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.55); opacity: 0; }
+  }
+
+  .alert-btn {
+    width: 170px; height: 170px;
+    border-radius: 50%;
+    border: 3px solid var(--red);
+    background: radial-gradient(circle at 35% 35%, #ff4466, #cc0022);
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 0.4rem;
+    box-shadow:
+      0 0 30px var(--red-glow),
+      0 0 60px rgba(255,34,68,0.15),
+      inset 0 2px 4px rgba(255,255,255,0.15);
+    transition: transform 0.1s, box-shadow 0.2s;
+    position: relative;
+    z-index: 2;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .alert-btn:hover {
+    box-shadow: 0 0 50px var(--red-glow), 0 0 100px rgba(255,34,68,0.2), inset 0 2px 4px rgba(255,255,255,0.2);
+  }
+  .alert-btn:active { transform: scale(0.95); }
+  .alert-btn.firing { animation: firePulse 0.4s ease; }
+  @keyframes firePulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+
+  .alert-icon { font-size: 2.6rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+  .alert-label {
+    font-family: var(--font-head);
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  }
+
+  .alert-hint {
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* ── Status Banner ── */
+  .status-banner {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-align: center;
+    display: none;
+    margin-bottom: 2rem;
+    animation: fadeIn 0.3s ease;
+  }
+  .status-banner.show { display: block; }
+  .status-banner.success { background: rgba(0,232,122,0.12); border: 1px solid var(--green); color: var(--green); }
+  .status-banner.error   { background: rgba(255,34,68,0.1);  border: 1px solid var(--red);   color: var(--red); }
+  .status-banner.loading { background: rgba(255,170,0,0.1);  border: 1px solid var(--amber); color: var(--amber); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 0.75rem 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    border-right: 1px solid var(--border);
+  }
+  .tab-btn:last-child { border-right: none; }
+  .tab-btn.active {
+    background: var(--surface2);
+    color: var(--text);
+  }
+
+  /* ── Panels ── */
+  .panel { display: none; animation: fadeIn 0.25s ease; }
+  .panel.active { display: block; }
+
+  /* ── Contact Panel ── */
+  .contact-list { list-style: none; display: flex; flex-direction: column; gap: 0.7rem; margin-bottom: 1.2rem; }
+  .contact-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+  }
+  .contact-info .contact-name { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+  .contact-info .contact-detail { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+  .btn-delete {
+    background: none; border: 1px solid var(--border);
+    color: var(--muted); border-radius: 4px;
+    padding: 0.3rem 0.6rem; cursor: pointer; font-size: 0.7rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-delete:hover { border-color: var(--red); color: var(--red); }
+
+  .add-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex; flex-direction: column; gap: 0.6rem;
+  }
+  .add-form label { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .add-form input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    padding: 0.55rem 0.75rem;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .add-form input:focus { border-color: var(--red); }
+  .btn-add {
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.65rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 0.3rem;
+    transition: opacity 0.2s;
+  }
+  .btn-add:hover { opacity: 0.85; }
+
+  /* ── Safety Panel ── */
+  .safety-grid { display: flex; flex-direction: column; gap: 1rem; }
+  .safety-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+  }
+  .safety-card h3 {
+    font-family: var(--font-head);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 0.5rem;
+  }
+  .safety-card p {
+    font-size: 0.72rem;
+    line-height: 1.7;
+    color: #b0b0c8;
+  }
+  .safety-card .step-list {
+    list-style: none;
+    display: flex; flex-direction: column; gap: 0.4rem;
+    margin-top: 0.5rem;
+  }
+  .safety-card .step-list li {
+    font-size: 0.7rem;
+    line-height: 1.6;
+    color: #b0b0c8;
+    padding-left: 1.2rem;
+    position: relative;
+  }
+  .safety-card .step-list li::before {
+    content: '▸';
+    position: absolute; left: 0;
+    color: var(--red);
+  }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 2rem;
+    text-align: center;
+    font-size: 0.58rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.5;
+  }
+
+  /* ── Alert overlay ── */
+  .alert-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(10,0,5,0.92);
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 1.2rem;
+    animation: fadeIn 0.3s ease;
+  }
+  .alert-overlay.show { display: flex; }
+  .alert-overlay .ov-icon { font-size: 4rem; animation: shake 0.5s ease infinite alternate; }
+  @keyframes shake { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+  .alert-overlay .ov-title {
+    font-family: var(--font-head);
+    font-size: 1.6rem; font-weight: 800;
+    color: var(--red); letter-spacing: 0.1em;
+    text-shadow: 0 0 30px var(--red-glow);
+  }
+  .alert-overlay .ov-sub { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.12em; }
+  .alert-overlay .ov-dismiss {
+    margin-top: 1rem;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.6rem 1.5rem;
+    border-radius: 4px; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .alert-overlay .ov-dismiss:hover { border-color: var(--text); color: var(--text); }
+</style>
+</head>
+<body>
+
+<!-- ALERT OVERLAY -->
+<div class="alert-overlay" id="overlay">
+  <div class="ov-icon">🚨</div>
+  <div class="ov-title">ALERT SENT</div>
+  <div class="ov-sub" id="overlayContacts">Notifying your emergency contacts…</div>
+  <button class="ov-dismiss" onclick="dismissOverlay()">Dismiss</button>
+</div>
+
+<div class="app">
+  <header>
+    <div class="logo">⚡ Safe Signal</div>
+    <div class="tagline">Personal Abduction Emergency System</div>
+  </header>
+
+  <!-- ALERT BUTTON -->
+  <div class="alert-zone">
+    <div class="alert-ring">
+      <button class="alert-btn" id="alertBtn" onclick="triggerAlert()">
+        <div class="alert-icon">🚨</div>
+        <div class="alert-label">SOS Alert</div>
+      </button>
+    </div>
+    <div class="alert-hint">Hold to send emergency alert to contacts</div>
+  </div>
+
+  <!-- STATUS BANNER -->
+  <div class="status-banner" id="statusBanner"></div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('contacts', this)">📋 Contacts</button>
+    <button class="tab-btn" onclick="switchTab('safety', this)">🛡 Safety Guide</button>
+  </div>
+
+  <!-- CONTACTS PANEL -->
+  <div class="panel active" id="panel-contacts">
+    <ul class="contact-list" id="contactList"></ul>
+
+    <div class="add-form">
+      <label>Add Emergency Contact</label>
+      <input type="text" id="newName" placeholder="Full Name" />
+      <input type="tel" id="newPhone" placeholder="Phone Number" />
+      <input type="text" id="newRelation" placeholder="Relationship (e.g. Mom)" />
+      <button class="btn-add" onclick="addContact()">+ Add Contact</button>
+    </div>
+  </div>
+
+  <!-- SAFETY PANEL -->
+  <div class="panel" id="panel-safety">
+    <div class="safety-grid">
+      <div class="safety-card">
+        <h3>🚨 If You Are Being Abducted</h3>
+        <ul class="step-list">
+          <li>Press the SOS button immediately to alert your contacts.</li>
+          <li>Scream loudly: "FIRE!" — people respond faster than "Help!"</li>
+          <li>Fight back only if you can safely escape — aim for eyes, nose, throat.</li>
+          <li>Drop objects along the route as trail markers (earrings, keys, clothing).</li>
+          <li>If put in a car trunk, look for the glow-in-the-dark trunk release cable.</li>
+        </ul>
+      </div>
+      <div class="safety-card">
+        <h3>📍 Remember Your Location</h3>
+        <ul class="step-list">
+          <li>Note street names, landmarks, building colors, or signs.</li>
+          <li>Count turns: left or right, and rough time between turns.</li>
+          <li>Listen for sounds: trains, highways, airports, water.</li>
+          <li>If possible, memorize the license plate of the vehicle.</li>
+        </ul>
+      </div>
+      <div class="safety-card">
+        <h3>🧠 Stay Calm & Survive</h3>
+        <ul class="step-list">
+          <li>Do not antagonize the abductor — compliance buys time.</li>
+          <li>Humanize yourself: share your name, talk about family.</li>
+          <li>Look for escape windows: unlocked doors, crowded areas, stops.</li>
+          <li>Memorize the faces, voices, and physical descriptions of abductors.</li>
+        </ul>
+      </div>
+      <div class="safety-card">
+        <h3>📞 After Escape or Rescue</h3>
+        <ul class="step-list">
+          <li>Call 911 (or local emergency number) immediately.</li>
+          <li>Do not shower or change clothes — preserve forensic evidence.</li>
+          <li>Write down everything you remember before details fade.</li>
+          <li>Seek medical attention even if you feel uninjured.</li>
+        </ul>
+      </div>
+      <div class="safety-card" style="border-left-color: var(--amber);">
+        <h3>⚠️ Prevention Tips</h3>
+        <ul class="step-list">
+          <li>Always inform someone of your destination and ETA.</li>
+          <li>Vary your daily routines — predictability increases risk.</li>
+          <li>Trust your instincts — if something feels wrong, leave immediately.</li>
+          <li>Keep your phone charged and location services enabled.</li>
+          <li>Walk confidently, stay aware, avoid headphones in unfamiliar areas.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>Safe Signal v1.0 · For Emergencies Only</footer>
+</div>
+
+<script>
+  // ── Config ────────────────────────────────────────────────────────────────
+  const API_BASE = 'http://localhost:3001/api'; // Change for production
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let contacts = [];
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    loadContacts();
+  });
+
+  // ── Tab switching ─────────────────────────────────────────────────────────
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+  }
+
+  // ── Status Banner ─────────────────────────────────────────────────────────
+  function showStatus(msg, type = 'success') {
+    const el = document.getElementById('statusBanner');
+    el.textContent = msg;
+    el.className = `status-banner show ${type}`;
+    setTimeout(() => el.classList.remove('show'), 4000);
+  }
+
+  // ── Alert Button ──────────────────────────────────────────────────────────
+  async function triggerAlert() {
+    const btn = document.getElementById('alertBtn');
+    btn.classList.add('firing');
+    btn.disabled = true;
+    setTimeout(() => btn.classList.remove('firing'), 400);
+
+    showStatus('Sending alert…', 'loading');
+
+    let lat = null, lng = null;
+    try {
+      const pos = await new Promise((res, rej) =>
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000 })
+      );
+      lat = pos.coords.latitude;
+      lng = pos.coords.longitude;
+    } catch (e) { /* location denied — proceed anyway */ }
+
+    try {
+      const res = await fetch(`${API_BASE}/alert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latitude: lat,
+          longitude: lng,
+          deviceInfo: navigator.userAgent,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('overlayContacts').textContent =
+          `Alerted ${data.notified.length} contact(s): ${data.notified.join(', ')}`;
+        document.getElementById('overlay').classList.add('show');
+        showStatus('✓ Alert sent successfully!', 'success');
+      } else {
+        showStatus('Alert failed. Try calling 911.', 'error');
+      }
+    } catch (err) {
+      // Offline/demo mode — still show the overlay
+      document.getElementById('overlayContacts').textContent =
+        'Could not reach server — call 911 immediately!';
+      document.getElementById('overlay').classList.add('show');
+      showStatus('Offline — server unreachable. Call 911!', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function dismissOverlay() {
+    document.getElementById('overlay').classList.remove('show');
+  }
+
+  // ── Contacts ──────────────────────────────────────────────────────────────
+  async function loadContacts() {
+    try {
+      const res = await fetch(`${API_BASE}/contacts`);
+      const data = await res.json();
+      contacts = data.contacts;
+    } catch {
+      // Demo mode fallback
+      contacts = [
+        { id: 1, name: 'Mom', phone: '+1-555-0101', relation: 'Mother' },
+        { id: 2, name: 'Dad', phone: '+1-555-0102', relation: 'Father' },
+      ];
+    }
+    renderContacts();
+  }
+
+  function renderContacts() {
+    const list = document.getElementById('contactList');
+    if (contacts.length === 0) {
+      list.innerHTML = '<li style="font-size:0.7rem;color:var(--muted);text-align:center;padding:1rem">No contacts yet. Add one below.</li>';
+      return;
+    }
+    list.innerHTML = contacts.map(c => `
+      <li class="contact-item">
+        <div class="contact-info">
+          <div class="contact-name">${escHtml(c.name)}</div>
+          <div class="contact-detail">${escHtml(c.phone)} · ${escHtml(c.relation)}</div>
+        </div>
+        <button class="btn-delete" onclick="deleteContact(${c.id})">Remove</button>
+      </li>
+    `).join('');
+  }
+
+  async function addContact() {
+    const name = document.getElementById('newName').value.trim();
+    const phone = document.getElementById('newPhone').value.trim();
+    const relation = document.getElementById('newRelation').value.trim();
+    if (!name || !phone) { showStatus('Name and phone are required.', 'error'); return; }
+
+    try {
+      const res = await fetch(`${API_BASE}/contacts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone, relation }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        contacts.push(data.contact);
+      }
+    } catch {
+      // Demo mode
+      contacts.push({ id: Date.now(), name, phone, relation });
+    }
+
+    document.getElementById('newName').value = '';
+    document.getElementById('newPhone').value = '';
+    document.getElementById('newRelation').value = '';
+    renderContacts();
+    showStatus(`✓ ${name} added as emergency contact.`, 'success');
+  }
+
+  async function deleteContact(id) {
+    try {
+      await fetch(`${API_BASE}/contacts/${id}`, { method: 'DELETE' });
+    } catch { /* offline demo */ }
+    contacts = contacts.filter(c => c.id !== id);
+    renderContacts();
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
